@@ -180,8 +180,13 @@ export function calculatePanchang(date: Date, lat: number, lon: number, elevatio
   }
 
   const sankrantiDateObj = new Date(sankrantiTime);
-  const targetDateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const sankrantiDateMidnight = new Date(sankrantiDateObj.getFullYear(), sankrantiDateObj.getMonth(), sankrantiDateObj.getDate());
+  
+  // Force IST timezone for calculation
+  const targetDateMidnight = new Date(date.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+  targetDateMidnight.setHours(0,0,0,0);
+  const sankrantiDateMidnight = new Date(sankrantiDateObj.toLocaleString("en-US", {timeZone: "Asia/Kolkata"}));
+  sankrantiDateMidnight.setHours(0,0,0,0);
+  
   const gate = Math.round((targetDateMidnight.getTime() - sankrantiDateMidnight.getTime()) / 86400000) + 1;
 
   // Calculate Lagna (Ascendant)
