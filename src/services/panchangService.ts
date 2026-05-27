@@ -5,7 +5,9 @@ import {
   AstroTime,
   GeoVector,
   Ecliptic,
-  MoonPhase
+  MoonPhase,
+  Horizon,
+  Equator
 } from 'astronomy-engine';
 
 export interface PanchangData {
@@ -15,16 +17,26 @@ export interface PanchangData {
   karana: { name: string; index: number; progress: number };
   vara: string;
   sunrise: Date;
+  sunriseAzimuth: number;
   sunset: Date;
+  sunsetAzimuth: number;
   moonrise: Date | null;
+  moonriseAzimuth: number | null;
   moonset: Date | null;
+  moonsetAzimuth: number | null;
   rahukaal: { start: Date; end: Date };
   gulikakaal: { start: Date; end: Date };
   abhijit: { start: Date; end: Date };
   ishtaKaal: { ghati: number; pala: number; vikal: number };
   rashi: { name: string; index: number };
-  lagna: { name: string; index: number };
+  lagna: { name: string; index: number; longitude: number };
   gate: number;
+  sunLong: number;
+  planets: { name: string; nameHi: string; longitude: number; house: number }[];
+  chaughadiya: { name: string; nameHi: string; start: Date; end: Date; type: 'shubh' | 'ashubh' | 'neutral' }[];
+  hora: { name: string; nameHi: string; start: Date; end: Date }[];
+  lagnaTable: { name: string; nameHi: string; start: Date; end: Date }[];
+  muhurtaTable: { name: string; nameHi: string; start: Date; end: Date; type: 'shubh' | 'ashubh' | 'special' }[];
 }
 
 const TITHIS = [
@@ -49,6 +61,69 @@ const KARANAS = [
 ];
 
 const VARAS = ["Ravivara", "Somavara", "Mangalavara", "Budhavara", "Guruvara", "Shukravara", "Shanivara"];
+
+const CHAUGHADIYA_ORDER = {
+  "Ravivara": ["Udveg", "Chara", "Labha", "Amrita", "Kaala", "Shubha", "Roga", "Udveg"],
+  "Somavara": ["Amrita", "Kaala", "Shubha", "Roga", "Udveg", "Chara", "Labha", "Amrita"],
+  "Mangalavara": ["Roga", "Udveg", "Chara", "Labha", "Amrita", "Kaala", "Shubha", "Roga"],
+  "Budhavara": ["Labha", "Amrita", "Kaala", "Shubha", "Roga", "Udveg", "Chara", "Labha"],
+  "Guruvara": ["Shubha", "Roga", "Udveg", "Chara", "Labha", "Amrita", "Kaala", "Shubha"],
+  "Shukravara": ["Chara", "Labha", "Amrita", "Kaala", "Shubha", "Roga", "Udveg", "Chara"],
+  "Shanivara": ["Kaala", "Shubha", "Roga", "Udveg", "Chara", "Labha", "Amrita", "Kaala"]
+};
+
+const CHAUGHADIYA_NIGHT_ORDER = {
+  "Ravivara": ["Shubha", "Amrita", "Chara", "Roga", "Kaala", "Labha", "Udveg", "Shubha"],
+  "Somavara": ["Chara", "Roga", "Kaala", "Labha", "Udveg", "Shubha", "Amrita", "Chara"],
+  "Mangalavara": ["Kaala", "Labha", "Udveg", "Shubha", "Amrita", "Chara", "Roga", "Kaala"],
+  "Budhavara": ["Udveg", "Shubha", "Amrita", "Chara", "Roga", "Kaala", "Labha", "Udveg"],
+  "Guruvara": ["Amrita", "Chara", "Roga", "Kaala", "Labha", "Udveg", "Shubha", "Amrita"],
+  "Shukravara": ["Roga", "Kaala", "Labha", "Udveg", "Shubha", "Amrita", "Chara", "Roga"],
+  "Shanivara": ["Labha", "Udveg", "Shubha", "Amrita", "Chara", "Roga", "Kaala", "Labha"]
+};
+
+const HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"];
+const HORA_ORDER_HI = ["सूर्य", "शुक्र", "बुध", "चंद्र", "शनि", "गुरु", "मंगल"];
+
+const CHAUGHADIYA_NAMES_HI: Record<string, string> = {
+  "Udveg": "उद्वेग",
+  "Chara": "चर",
+  "Labha": "लाभ",
+  "Amrita": "अमृत",
+  "Kaala": "काल",
+  "Shubha": "शुभ",
+  "Roga": "रोग"
+};
+
+const MUHURTAS = [
+  { name: "Rudra", nameHi: "रुद्र", type: "ashubh" },
+  { name: "Ahi", nameHi: "अहि", type: "ashubh" },
+  { name: "Mitra", nameHi: "मित्र", type: "shubh" },
+  { name: "Pitri", nameHi: "पितृ", type: "ashubh" },
+  { name: "Vasu", nameHi: "वसु", type: "shubh" },
+  { name: "Vara", nameHi: "वारा", type: "shubh" },
+  { name: "Vishvadeva", nameHi: "विश्वेदेवा", type: "shubh" },
+  { name: "Vidhi", nameHi: "विधि", type: "shubh" },
+  { name: "Satamukhi", nameHi: "सतमुखी", type: "shubh" },
+  { name: "Puruhuta", nameHi: "पुरुहूत", type: "shubh" },
+  { name: "Vahni", nameHi: "वह्नि", type: "ashubh" },
+  { name: "Naktanchara", nameHi: "नक्तंचर", type: "ashubh" },
+  { name: "Varuna", nameHi: "वरुण", type: "shubh" },
+  { name: "Aryaman", nameHi: "अर्यमन", type: "shubh" },
+  { name: "Bhaga", nameHi: "भग", type: "ashubh" }
+];
+
+const RASHIS_HI = ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"];
+
+const CHAUGHADIYA_TYPES: Record<string, 'shubh' | 'ashubh' | 'neutral'> = {
+  "Amrita": "shubh",
+  "Shubha": "shubh",
+  "Labha": "shubh",
+  "Chara": "shubh",
+  "Udveg": "ashubh",
+  "Roga": "ashubh",
+  "Kaala": "ashubh"
+};
 
 function getAyanamsa(date: Date): number {
   const year = date.getFullYear();
@@ -84,6 +159,17 @@ export function calculatePanchang(date: Date, lat: number, lon: number, elevatio
 
   const moonrise = SearchRiseSet(Body.Moon, observer, 1, timeStartOfDay, 1);
   const moonset = SearchRiseSet(Body.Moon, observer, -1, timeStartOfDay, 1);
+
+  // Calculate Azimuths
+  const sunriseEq = Equator(Body.Sun, new AstroTime(sunrise.date), observer, true, true);
+  const sunsetEq = Equator(Body.Sun, new AstroTime(sunset.date), observer, true, true);
+  const moonriseEq = moonrise ? Equator(Body.Moon, new AstroTime(moonrise.date), observer, true, true) : null;
+  const moonsetEq = moonset ? Equator(Body.Moon, new AstroTime(moonset.date), observer, true, true) : null;
+
+  const sunriseHor = Horizon(new AstroTime(sunrise.date), observer, sunriseEq.ra, sunriseEq.dec, "normal");
+  const sunsetHor = Horizon(new AstroTime(sunset.date), observer, sunsetEq.ra, sunsetEq.dec, "normal");
+  const moonriseHor = moonrise && moonriseEq ? Horizon(new AstroTime(moonrise.date), observer, moonriseEq.ra, moonriseEq.dec, "normal") : null;
+  const moonsetHor = moonset && moonsetEq ? Horizon(new AstroTime(moonset.date), observer, moonsetEq.ra, moonsetEq.dec, "normal") : null;
 
   const ayanamsa = getAyanamsa(date);
   
@@ -205,6 +291,144 @@ export function calculatePanchang(date: Date, lat: number, lon: number, elevatio
   const lagnaIndex = Math.floor(siderealAsc / 30);
   const lagnaName = RASHIS[lagnaIndex % 12];
 
+  // Calculate all planets
+  const planetBodies = [
+    { body: Body.Sun, name: "Sun", nameHi: "सूर्य" },
+    { body: Body.Moon, name: "Moon", nameHi: "चंद्र" },
+    { body: Body.Mars, name: "Mars", nameHi: "मंगल" },
+    { body: Body.Mercury, name: "Mercury", nameHi: "बुध" },
+    { body: Body.Jupiter, name: "Jupiter", nameHi: "गुरु" },
+    { body: Body.Venus, name: "Venus", nameHi: "शुक्र" },
+    { body: Body.Saturn, name: "Saturn", nameHi: "शनि" }
+  ];
+
+  const planets = planetBodies.map(p => {
+    const vec = GeoVector(p.body, time, true);
+    const ecl = Ecliptic(vec);
+    const long = (ecl.elon - ayanamsa + 360) % 360;
+    const house = (Math.floor(long / 30) - lagnaIndex + 12) % 12 + 1;
+    return { name: p.name, nameHi: p.nameHi, longitude: long, house };
+  });
+
+  // Rahu/Ketu (Approximate)
+  const rahuLong = (MoonPhase(time) * 360 / 28 + 180) % 360; // Very rough approximation for demo
+  const ketuLong = (rahuLong + 180) % 360;
+  planets.push({ name: "Rahu", nameHi: "राहु", longitude: rahuLong, house: (Math.floor(rahuLong / 30) - lagnaIndex + 12) % 12 + 1 });
+  planets.push({ name: "Ketu", nameHi: "केतु", longitude: ketuLong, house: (Math.floor(ketuLong / 30) - lagnaIndex + 12) % 12 + 1 });
+
+  // Chaughadiya Calculation
+  const nightDuration = 86400000 - dayDuration;
+  const dayPart = dayDuration / 8;
+  const nightPart = nightDuration / 8;
+  
+  const CHAUGHADIYA_ORDER = {
+    "Ravivara": ["Udveg", "Chara", "Labha", "Amrita", "Kala", "Shubha", "Roga", "Udveg"],
+    "Somavara": ["Amrita", "Kala", "Shubha", "Roga", "Udveg", "Chara", "Labha", "Amrita"],
+    "Mangalavara": ["Roga", "Udveg", "Chara", "Labha", "Amrita", "Kala", "Shubha", "Roga"],
+    "Budhavara": ["Labha", "Amrita", "Kala", "Shubha", "Roga", "Udveg", "Chara", "Labha"],
+    "Guruvara": ["Shubha", "Roga", "Udveg", "Chara", "Labha", "Amrita", "Kala", "Shubha"],
+    "Shukravara": ["Chara", "Labha", "Amrita", "Kala", "Shubha", "Roga", "Udveg", "Chara"],
+    "Shanivara": ["Kala", "Shubha", "Roga", "Udveg", "Chara", "Labha", "Amrita", "Kala"]
+  };
+
+  const CHAUGHADIYA_NAMES_HI: Record<string, string> = {
+    "Udveg": "उद्वेग", "Chara": "चर", "Labha": "लाभ", "Amrita": "अमृत", "Kala": "काल", "Shubha": "शुभ", "Roga": "रोग"
+  };
+
+  const CHAUGHADIYA_TYPES: Record<string, 'shubh' | 'ashubh' | 'neutral'> = {
+    "Udveg": "ashubh", "Chara": "neutral", "Labha": "shubh", "Amrita": "shubh", "Kala": "ashubh", "Shubha": "shubh", "Roga": "ashubh"
+  };
+
+  const chaughadiya: PanchangData['chaughadiya'] = [];
+  const dayOrder = CHAUGHADIYA_ORDER[vara as keyof typeof CHAUGHADIYA_ORDER];
+  
+  for (let i = 0; i < 8; i++) {
+    const start = new Date(sunrise.date.getTime() + i * dayPart);
+    const end = new Date(sunrise.date.getTime() + (i + 1) * dayPart);
+    chaughadiya.push({
+      name: dayOrder[i],
+      nameHi: CHAUGHADIYA_NAMES_HI[dayOrder[i]],
+      type: CHAUGHADIYA_TYPES[dayOrder[i]],
+      start,
+      end
+    });
+  }
+
+  // Hora Calculation
+  const HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"];
+  const HORA_NAMES_HI: Record<string, string> = {
+    "Sun": "सूर्य", "Venus": "शुक्र", "Mercury": "बुध", "Moon": "चंद्र", "Saturn": "शनि", "Jupiter": "गुरु", "Mars": "मंगल"
+  };
+  const hora: PanchangData['hora'] = [];
+  const dayHoraPart = dayDuration / 12;
+  const startHoraIndex = HORA_ORDER.indexOf(vara.replace("vara", "").replace("Ravi", "Sun").replace("Soma", "Moon").replace("Mangala", "Mars").replace("Budha", "Mercury").replace("Guru", "Jupiter").replace("Shukra", "Venus").replace("Shani", "Saturn"));
+  
+  for (let i = 0; i < 24; i++) {
+    const duration = i < 12 ? dayDuration / 12 : nightDuration / 12;
+    const baseTime = i < 12 ? sunrise.date.getTime() : sunset.date.getTime();
+    const offset = i < 12 ? i * (dayDuration / 12) : (i - 12) * (nightDuration / 12);
+    const hIdx = (startHoraIndex + i) % 7;
+    hora.push({
+      name: HORA_ORDER[hIdx],
+      nameHi: HORA_NAMES_HI[HORA_ORDER[hIdx]],
+      start: new Date(baseTime + offset),
+      end: new Date(baseTime + offset + duration)
+    });
+  }
+
+  // Lagna Table Calculation
+  const lagnaTable: PanchangData['lagnaTable'] = [];
+  const RASHIS_HI = ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"];
+  for (let i = 0; i < 12; i++) {
+    const checkTime = new Date(sunrise.date.getTime() + i * 2 * 3600000);
+    const tCheck = (checkTime.getTime() / 86400000 - 10957.5) / 36525;
+    let gmstCheck = 280.46061837 + 360.98564736629 * (checkTime.getTime() / 86400000 - 10957.5) + 0.000387933 * tCheck * tCheck;
+    gmstCheck = ((gmstCheck % 360) + 360) % 360;
+    const lmstCheck = (gmstCheck + lon) % 360;
+    const ramcCheck = lmstCheck * rad;
+    let ascCheck = Math.atan2(Math.cos(ramcCheck), -Math.sin(ramcCheck) * Math.cos(e) - Math.tan(latRad) * Math.sin(e)) / rad;
+    ascCheck = ((ascCheck % 360) + 360) % 360;
+    const sAscCheck = (ascCheck - ayanamsa + 360) % 360;
+    const lIdx = Math.floor(sAscCheck / 30);
+    lagnaTable.push({
+      name: RASHIS[lIdx % 12],
+      nameHi: RASHIS_HI[lIdx % 12],
+      start: checkTime,
+      end: new Date(checkTime.getTime() + 2 * 3600000)
+    });
+  }
+
+  // Muhurta Table
+  const muhurtaTable: PanchangData['muhurtaTable'] = [
+    { name: "Brahma Muhurta", nameHi: "ब्रह्म मुहूर्त", start: new Date(sunrise.date.getTime() - 96 * 60000), end: new Date(sunrise.date.getTime() - 48 * 60000), type: 'shubh' },
+    { name: "Abhijit Muhurta", nameHi: "अभिजित मुहूर्त", start: abhijitStart, end: abhijitEnd, type: 'shubh' },
+    { name: "Rahu Kaal", nameHi: "राहु काल", start: rahuStart, end: rahuEnd, type: 'ashubh' },
+    { name: "Gulika Kaal", nameHi: "गुुलिका काल", start: gulikaStart, end: gulikaEnd, type: 'ashubh' },
+    { name: "Yamaganda Kaal", nameHi: "यमगण्ड काल", start: new Date(sunrise.date.getTime() + (dayDuration / 8) * 4), end: new Date(sunrise.date.getTime() + (dayDuration / 8) * 5), type: 'ashubh' }
+  ];
+
+  // Sarvartha Siddhi Yoga Detection
+  const SSY_RULES: Record<string, string[]> = {
+    "Ravivara": ["Ashwini", "Rohini", "Mrigashira", "Pushya", "Hasta", "Uttara Phalguni", "Uttara Ashadha", "Uttara Bhadrapada", "Shravana"],
+    "Somavara": ["Rohini", "Mrigashira", "Pushya", "Anuradha", "Shravana"],
+    "Mangalavara": ["Ashwini", "Krittika", "Mrigashira", "Jyeshtha"],
+    "Budhavara": ["Rohini", "Mrigashira", "Hasta", "Anuradha", "Dhanishta"],
+    "Guruvara": ["Ashwini", "Punarvasu", "Pushya", "Anuradha", "Revati"],
+    "Shukravara": ["Ashwini", "Bharani", "Anuradha", "Shravana", "Revati"],
+    "Shanivara": ["Rohini", "Shravana", "Dhanishta"]
+  };
+
+  if (SSY_RULES[vara]?.includes(nakName)) {
+    muhurtaTable.push({
+      name: "Sarvartha Siddhi Yoga",
+      nameHi: "सर्वार्थ सिद्धि योग",
+      // For simplicity, we show it as active for the day period
+      start: sunrise.date,
+      end: sunset.date,
+      type: 'special'
+    });
+  }
+
   return {
     tithi: { name: fullTithiName, index: tithiIndex, progress: (diff % 12) / 12 },
     nakshatra: { name: nakName, index: nakIndex, progress: (moonLong % (360 / 27)) / (360 / 27) },
@@ -212,16 +436,26 @@ export function calculatePanchang(date: Date, lat: number, lon: number, elevatio
     karana: { name: karanaName, index: karanaIndex, progress: (diff % 6) / 6 },
     vara,
     sunrise: sunrise.date,
+    sunriseAzimuth: sunriseHor.azimuth,
     sunset: sunset.date,
+    sunsetAzimuth: sunsetHor.azimuth,
     moonrise: moonrise?.date || null,
+    moonriseAzimuth: moonriseHor?.azimuth || null,
     moonset: moonset?.date || null,
+    moonsetAzimuth: moonsetHor?.azimuth || null,
     rahukaal: { start: rahuStart, end: rahuEnd },
     gulikakaal: { start: gulikaStart, end: gulikaEnd },
     abhijit: { start: abhijitStart, end: abhijitEnd },
     ishtaKaal: { ghati, pala, vikal },
     rashi: { name: rashiName, index: rashiIndex },
-    lagna: { name: lagnaName, index: lagnaIndex },
-    gate
+    lagna: { name: lagnaName, index: lagnaIndex, longitude: siderealAsc },
+    gate,
+    sunLong,
+    planets,
+    chaughadiya,
+    hora,
+    lagnaTable,
+    muhurtaTable
   };
 }
 
