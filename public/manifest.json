@@ -1,0 +1,23 @@
+{
+  "name": "Siddhidatri Panchang",
+  "short_name": "Panchang",
+  "description": "Vedic Panchang for Uttarakhand",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f2ed",
+  "theme_color": "#f27d26",
+  "icons": [
+    {
+      "src": "https://picsum.photos/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

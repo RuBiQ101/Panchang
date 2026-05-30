@@ -1,0 +1,157 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Inter:wght@300;400;500;600;700&family=Martel:wght@300;400;600;700;800;900&family=Tiro+Devanagari+Sanskrit:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif: "Cormorant Garamond", serif;
+  --font-sans: "Inter", sans-serif;
+  --font-hindi: "Martel", serif;
+
+  --color-parchment: #F5F2ED;
+  --color-saffron: #F27D26;
+  --color-saffron-dark: #D66310;
+  --color-ink: #1A1A1A;
+  --color-gold: #C5A059;
+
+  --color-rose-gold-50: #fffaf8;
+  --color-rose-gold-100: #feefea;
+  --color-rose-gold-200: #fddbd1;
+  --color-rose-gold-300: #fbbba9;
+  --color-rose-gold-400: #f88e73;
+  --color-rose-gold-500: #f26b4d;
+  --color-rose-gold-600: #e14d31;
+  --color-rose-gold-700: #bd3d27;
+  --color-rose-gold-800: #9c3524;
+  --color-rose-gold-900: #823023;
+  --color-rose-gold-950: #47160f;
+
+  --color-cosmic-indigo: #1a1a2e;
+}
+
+body {
+  background-color: #0a0502; /* Cosmic Black */
+  color: #E4E3E0; /* Off-white text */
+  font-family: var(--font-sans);
+}
+
+.spiritual-card {
+  background-color: rgba(228, 227, 224, 0.05);
+  border: 1px solid rgba(228, 227, 224, 0.1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  border-radius: 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.spiritual-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+}
+
+.glass-header {
+  background: rgba(245, 242, 237, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.saffron-gradient {
+  background: linear-gradient(135deg, #f26b4d 0%, #bd3d27 100%);
+  box-shadow: 0 4px 15px rgba(242, 107, 77, 0.2);
+}
+
+.text-shadow-sm {
+  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.bento-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+}
+
+/* Custom scrollbar for parchment feel */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #100A06;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(228, 227, 224, 0.2);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(228, 227, 224, 0.4);
+}
+
+/* Dark theme for React Calendar */
+.react-calendar,
+.react-calendar__viewContainer,
+.react-calendar__month-view,
+.react-calendar__month-view > div,
+.react-calendar__month-view > div > div {
+  @apply border-none w-full text-rose-gold-100;
+  background: transparent !important;
+}
+
+.react-calendar__navigation {
+  @apply mb-4;
+}
+
+.react-calendar__navigation button {
+  @apply text-rose-gold-100 hover:bg-rose-gold-500/10 rounded-lg min-w-[44px] py-2;
+}
+
+.react-calendar__navigation button:disabled {
+  @apply text-rose-gold-100/20 bg-transparent;
+}
+
+.react-calendar__month-view__weekdays {
+  @apply border-b border-rose-gold-500/10 mb-2;
+}
+
+.react-calendar__month-view__weekdays__weekday {
+  @apply text-rose-gold-500 font-bold uppercase text-[10px] p-2 no-underline;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  @apply no-underline decoration-0;
+}
+
+.react-calendar__tile {
+  @apply text-rose-gold-100/90 rounded-xl transition-all relative overflow-hidden flex flex-col items-center justify-center min-h-[110px] bg-[#1a1a1a]/60 p-0!;
+}
+
+.react-calendar__tile time {
+  @apply hidden;
+}
+
+.react-calendar__tile:disabled {
+  @apply text-rose-gold-100/10;
+}
+
+.react-calendar__tile:enabled:hover,
+.react-calendar__tile:enabled:focus {
+  @apply bg-rose-gold-500/20 text-rose-gold-100;
+}
+
+.react-calendar__tile--now {
+  @apply bg-rose-gold-500/10 text-rose-gold-500 font-bold;
+}
+
+.react-calendar__tile--active {
+  background: #f26b4d !important;
+  @apply border-none text-[#0a0502] font-bold shadow-lg shadow-rose-gold-500/40;
+}
+
+.react-calendar__tile--active time {
+  @apply hidden;
+}
+
+.react-calendar__tile--active:enabled:hover,
+.react-calendar__tile--active:enabled:focus {
+  background: radial-gradient(circle at center, #2a2a4e 0%, #1a1a2e 100%) !important;
+  @apply border-rose-gold-500;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  @apply opacity-20;
+}

@@ -1,0 +1,5 @@
+{
+  "name": "Siddhidatri Panchang",
+  "description": "A specialized Vedic Panchang for the Uttarakhand region, featuring real-time calculations, regional festivals like Harela and Phool Dei, and North-Indian style Kundali generation. Supports offline mode and Android PWA installation.",
+  "requestFramePermissions": ["geolocation"]
+}

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Siddhidatri</string>
+    <string name="title_activity_main">Siddhidatri</string>
+    <string name="package_name">com.siddhidatri.panchang</string>
+    <string name="custom_url_scheme">com.siddhidatri.panchang</string>
+</resources>

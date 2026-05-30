@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Siddhidatri" />
+    <link rel="apple-touch-icon" href="https://picsum.photos/seed/siddhidatri/192/192" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#f27d26" />
+    <title>Siddhidatri Panchang</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Forcefully clear all caches and unregister service workers
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) caches.delete(name);
+        });
+      }
+      
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          let hasSw = registrations.length > 0;
+          for(let registration of registrations) {
+            registration.unregister();
+          }
+          if (hasSw) {
+            window.location.reload();
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
+
