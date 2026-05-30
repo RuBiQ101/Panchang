@@ -1,0 +1,9 @@
+{
+	"appId": "com.siddhidatri.panchang",
+	"appName": "Siddhidatri",
+	"webDir": "dist",
+	"bundledWebRuntime": false,
+	"server": {
+		"androidScheme": "https"
+	}
+}
