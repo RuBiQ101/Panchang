@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar as CalendarIcon, 
   Sun, 
@@ -66,7 +66,13 @@ function cn(...inputs: ClassValue[]) {
 
 type View = 'dashboard' | 'calendar' | 'panchang' | 'kundali' | 'festivals' | 'muhurta' | 'astrologers' | 'pujavrat' | 'offline' | 'about' | 'widget' | 'karmakanda' | 'testing' | 'install' | 'vedicwatch' | 'settings' | 'profile';
 
-export default function App() {
+interface LocationSearchResult {
+    display_name: string;
+    lat: string;
+    lon: string;
+  }
+
+  export default function App() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<View>('dashboard');
   const [language, setLanguage] = useState<Language>('en');
@@ -91,6 +97,37 @@ export default function App() {
     lat: activeUser ? activeUser.latitude : location.lat,
     lon: activeUser ? activeUser.longitude : location.lon
   });
+  const [authTab, setAuthTab] = useState<'login' | 'signup'>('signup');
+  const [editMode, setEditMode] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState(activeUser?.name || '');
+  const [profileEmail, setProfileEmail] = useState(activeUser?.email || '');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [profileDob, setProfileDob] = useState(activeUser?.dob || format(new Date(), 'yyyy-MM-dd'));
+  const [profileTime, setProfileTime] = useState(activeUser?.birthTime || format(new Date(), 'HH:mm'));
+  const [profilePlace, setProfilePlace] = useState(activeUser?.birthPlace || 'Dehradun, UK');
+  const [profileLat, setProfileLat] = useState(activeUser?.latitude || location.lat);
+  const [profileLon, setProfileLon] = useState(activeUser?.longitude || location.lon);
+  const [profileElevation, setProfileElevation] = useState(activeUser?.elevation || location.elevation);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [signupName, setSignupName] = useState('');
+  const [signupEmail, setSignupEmail] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
+  const [signupDate, setSignupDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [signupTime, setSignupTime] = useState(format(new Date(), 'HH:mm'));
+  const [signupPlace, setSignupPlace] = useState('Dehradun, UK');
+  const [signupLat, setSignupLat] = useState(location.lat);
+  const [signupLon, setSignupLon] = useState(location.lon);
+  const [signupElevation, setSignupElevation] = useState(location.elevation);
+  const [signupLocationSelected, setSignupLocationSelected] = useState(false);
+  const [signupLocationResults, setSignupLocationResults] = useState<LocationSearchResult[]>([]);
+  const [signupLocationLoading, setSignupLocationLoading] = useState(false);
+  const [signupLocationError, setSignupLocationError] = useState<string | null>(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const sidebarMenuRef = useRef<HTMLDivElement>(null);
 
   const t = translations[language];
 
@@ -98,6 +135,105 @@ export default function App() {
     const directions = t.directions;
     const index = Math.round(azimuth / 22.5) % 16;
     return directions[index];
+  };
+
+  const applySignupLocation = (result: LocationSearchResult) => {
+    const latitude = parseFloat(result.lat);
+    const longitude = parseFloat(result.lon);
+    setSignupPlace(result.display_name);
+    setSignupLat(latitude);
+    setSignupLon(longitude);
+    setSignupLocationSelected(true);
+    setSignupLocationResults([]);
+    setSignupLocationError(null);
+  };
+
+  const getSatellitePreviewUrl = (lat: number, lon: number, width = 450, height = 220) => {
+    const span = 0.03;
+    const minLon = lon - span;
+    const minLat = lat - span;
+    const maxLon = lon + span;
+    const maxLat = lat + span;
+    return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLon},${minLat},${maxLon},${maxLat}&bboxSR=4326&imageSR=4326&size=${width},${height}&format=png&transparent=false&f=image`;
+  };
+
+  const handleLookupSignupLocation = async () => {
+    const query = signupPlace.trim();
+    if (!query) {
+      setSignupLocationError(language === 'hi' ? 'कृपया जन्म स्थान भरें।' : 'Please enter a birth place to look up.');
+      setSignupLocationResults([]);
+      return;
+    }
+
+    setSignupLocationLoading(true);
+    setSignupLocationError(null);
+    setSignupLocationResults([]);
+
+    try {
+      const nominatimParams = new URLSearchParams({
+        format: 'jsonv2',
+        limit: '10',
+        q: query,
+        addressdetails: '1',
+        countrycodes: 'in',
+        dedupe: '0',
+        'accept-language': language === 'hi' ? 'hi' : 'en'
+      });
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${nominatimParams.toString()}`);
+      if (!response.ok) {
+        throw new Error('Lookup failed.');
+      }
+      const results = await response.json();
+      const normalized = Array.isArray(results)
+        ? results.map((item: any) => ({
+            display_name: item.display_name,
+            lat: item.lat,
+            lon: item.lon
+          }))
+        : [];
+
+      if (normalized.length > 0) {
+        if (normalized.length === 1) {
+          applySignupLocation(normalized[0]);
+        } else {
+          setSignupLocationResults(normalized.slice(0, 10));
+        }
+      } else {
+        const photonResponse = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=10&lang=${language === 'hi' ? 'hi' : 'en'}`);
+        if (!photonResponse.ok) {
+          throw new Error('Fallback lookup failed.');
+        }
+        const photonData = await photonResponse.json();
+        const fallbackResults = Array.isArray(photonData.features)
+          ? photonData.features.map((feature: any) => {
+              const props = feature.properties || {};
+              const parts = [
+                props.name,
+                props.village || props.hamlet || props.town || props.city,
+                props.state,
+                props.country
+              ].filter(Boolean);
+              return {
+                display_name: parts.join(', '),
+                lat: String(feature.geometry.coordinates[1]),
+                lon: String(feature.geometry.coordinates[0])
+              };
+            })
+          : [];
+
+        if (fallbackResults.length === 1) {
+          applySignupLocation(fallbackResults[0]);
+        } else if (fallbackResults.length > 0) {
+          setSignupLocationResults(fallbackResults.slice(0, 10));
+        } else {
+          setSignupLocationError(language === 'hi' ? 'कोई परिणाम नहीं मिला। कोई अन्य स्थान आज़माएँ।' : 'No locations found. Try a different place name.');
+        }
+      }
+    } catch (err: any) {
+      setSignupLocationError(language === 'hi' ? 'स्थान खोजने में त्रुटि हुई। बाद में पुनः प्रयास करें।' : 'There was an error finding the location. Please try again later.');
+    } finally {
+      setSignupLocationLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -122,12 +258,55 @@ export default function App() {
   }, [location, activeUser]);
 
   useEffect(() => {
+    if (activeUser) {
+      setProfileName(activeUser.name);
+      setProfileEmail(activeUser.email);
+      setProfileDob(activeUser.dob);
+      setProfileTime(activeUser.birthTime);
+      setProfilePlace(activeUser.birthPlace);
+      setProfileLat(activeUser.latitude);
+      setProfileLon(activeUser.longitude);
+      setProfileElevation(activeUser.elevation);
+    }
+  }, [activeUser]);
+
+  useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  useEffect(() => {
+    const sidebarNav = sidebarMenuRef.current;
+    if (!sidebarNav) return;
+
+    const handleScroll = () => {
+      const scrollTop = sidebarNav.scrollTop;
+      const scrollHeight = sidebarNav.scrollHeight - sidebarNav.clientHeight;
+      const progress = scrollHeight > 0 ? scrollTop / scrollHeight : 0;
+      setScrollProgress(progress);
+
+      const buttons = sidebarNav.querySelectorAll('button');
+      buttons.forEach((button, index) => {
+        const buttonTop = (button as HTMLElement).offsetTop;
+        const buttonHeight = button.clientHeight;
+        const viewportTop = scrollTop;
+        const viewportBottom = scrollTop + sidebarNav.clientHeight;
+
+        const distance = Math.abs((buttonTop + buttonHeight / 2) - (scrollTop + sidebarNav.clientHeight / 2));
+        const maxDistance = sidebarNav.clientHeight;
+        const progress = Math.max(0, 1 - distance / maxDistance);
+
+        (button as HTMLElement).style.opacity = (0.3 + progress * 0.7).toString();
+        (button as HTMLElement).style.transform = `translateY(${(1 - progress) * 20}px) rotateX(${(1 - progress) * 15}deg) scaleY(${0.8 + progress * 0.2})`;
+      });
+    };
+
+    sidebarNav.addEventListener('scroll', handleScroll);
+    return () => sidebarNav.removeEventListener('scroll', handleScroll);
   }, []);
 
   const getPublicUrl = () => {
@@ -232,42 +411,7 @@ export default function App() {
   ];
 
   const renderProfile = () => {
-    const [authTab, setAuthTab] = useState<'login' | 'signup'>('signup');
-    const [editMode, setEditMode] = useState(false);
     
-    // Login form state
-    const [loginEmail, setLoginEmail] = useState('');
-    const [loginPassword, setLoginPassword] = useState('');
-    const [loginError, setLoginError] = useState<string | null>(null);
-
-    // Signup & Edit form state
-    const [profileName, setProfileName] = useState(activeUser?.name || '');
-    const [profileEmail, setProfileEmail] = useState(activeUser?.email || '');
-    const [profilePassword, setProfilePassword] = useState('');
-    const [profileDob, setProfileDob] = useState(activeUser?.dob || format(new Date(), 'yyyy-MM-dd'));
-    const [profileTime, setProfileTime] = useState(activeUser?.birthTime || format(new Date(), 'HH:mm'));
-    const [profilePlace, setProfilePlace] = useState(activeUser?.birthPlace || 'Dehradun, UK');
-    const [profileLat, setProfileLat] = useState(activeUser?.latitude || location.lat);
-    const [profileLon, setProfileLon] = useState(activeUser?.longitude || location.lon);
-    const [profileElevation, setProfileElevation] = useState(activeUser?.elevation || location.elevation);
-    const [profileError, setProfileError] = useState<string | null>(null);
-
-    const [savedNotice, setSavedNotice] = useState<string | null>(null);
-
-    // Sync state when activeUser changes or editMode is toggled
-    useEffect(() => {
-      if (activeUser) {
-        setProfileName(activeUser.name);
-        setProfileEmail(activeUser.email);
-        setProfileDob(activeUser.dob);
-        setProfileTime(activeUser.birthTime);
-        setProfilePlace(activeUser.birthPlace);
-        setProfileLat(activeUser.latitude);
-        setProfileLon(activeUser.longitude);
-        setProfileElevation(activeUser.elevation);
-      }
-    }, [activeUser, editMode]);
-
     const handleSignup = (e: React.FormEvent) => {
       e.preventDefault();
       setProfileError(null);
@@ -749,50 +893,85 @@ export default function App() {
 
                     <div className="space-y-1.5">
                       <label className="text-[9px] font-bold uppercase text-rose-gold-100/40 tracking-wider px-1">{t.birthPlace}</label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3 top-3 text-rose-gold-500/50" size={14} />
-                        <input 
-                          type="text" 
-                          placeholder="e.g. Dehradun"
-                          value={signupPlace}
-                          onChange={(e) => setSignupPlace(e.target.value)}
-                          className="w-full bg-rose-gold-900/20 border border-rose-gold-500/20 rounded-xl p-2.5 pl-9 text-xs text-rose-gold-100 focus:outline-none focus:border-rose-gold-500"
-                        />
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <MapPin className="absolute left-3 top-3 text-rose-gold-500/50" size={14} />
+                          <input 
+                            type="text" 
+                            placeholder="e.g. Dehradun"
+                            value={signupPlace}
+                            onChange={(e) => {
+                              setSignupPlace(e.target.value);
+                              setSignupLocationSelected(false);
+                            }}
+                            className="w-full bg-rose-gold-900/20 border border-rose-gold-500/20 rounded-xl p-2.5 pl-9 text-xs text-rose-gold-100 focus:outline-none focus:border-rose-gold-500"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleLookupSignupLocation}
+                          className="w-full py-2 bg-rose-gold-500/10 border border-rose-gold-500/20 text-rose-gold-100 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-rose-gold-500/20 transition-all"
+                        >
+                          {signupLocationLoading ? (language === 'hi' ? 'खोज रहा है…' : 'Searching…') : (language === 'hi' ? 'स्थान खोजें' : 'Lookup Location')}
+                        </button>
+
+                        {signupLocationError && (
+                          <div className="p-2 text-[10px] text-red-300 bg-red-500/10 rounded-xl border border-red-500/20">
+                            {signupLocationError}
+                          </div>
+                        )}
+
+                        {signupLocationResults.length > 0 && (
+                          <div className="space-y-2 rounded-2xl border border-rose-gold-500/10 bg-rose-gold-900/20 p-3 text-[10px]">
+                            <div className="text-rose-gold-100/70 uppercase tracking-widest font-bold mb-1">
+                              {language === 'hi' ? 'स्थान चुनें' : 'Choose a location'}
+                            </div>
+                            {signupLocationResults.map((result, index) => (
+                              <button
+                                key={`${result.lat}-${result.lon}-${index}`}
+                                type="button"
+                                onClick={() => applySignupLocation(result)}
+                                className="w-full text-left rounded-xl p-3 bg-rose-gold-900/20 border border-rose-gold-500/10 hover:bg-rose-gold-500/10 transition-colors"
+                              >
+                                <div className="font-semibold text-rose-gold-100 text-[11px] truncate">{result.display_name}</div>
+                                <div className="text-rose-gold-100/50 text-[9px] mt-1">
+                                  {parseFloat(result.lat).toFixed(4)}°N, {parseFloat(result.lon).toFixed(4)}°E
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {signupLocationSelected && (
+                          <div className="rounded-2xl overflow-hidden border border-rose-gold-500/10 bg-black/20 mt-4">
+                            <div className="p-3 border-b border-rose-gold-500/10 text-[10px] uppercase tracking-widest text-rose-gold-100/70 font-bold">
+                              {language === 'hi' ? 'उपग्रह दृश्य' : 'Satellite preview'}
+                            </div>
+                            <img
+                              src={getSatellitePreviewUrl(signupLat, signupLon)}
+                              alt="Selected satellite preview"
+                              className="w-full h-44 object-cover"
+                              onError={(event) => {
+                                const target = event.currentTarget as HTMLImageElement;
+                                target.src = '';
+                              }}
+                            />
+                            <div className="p-3 text-[10px] text-rose-gold-100/70 space-y-1">
+                              <p>{language === 'hi' ? 'यह उपग्रह पूर्वावलोकन चुने गए स्थान के लिए है।' : 'This satellite preview is for the selected location.'}</p>
+                              <p className="font-semibold">{signupLat.toFixed(4)}°N, {signupLon.toFixed(4)}°E</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Coordinates Grid */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-bold uppercase text-rose-gold-100/40 tracking-wider px-1">Lat (°N)</label>
-                        <input 
-                          type="number" 
-                          step="any"
-                          value={signupLat}
-                          onChange={(e) => setSignupLat(parseFloat(e.target.value))}
-                          className="w-full bg-rose-gold-900/20 border border-rose-gold-500/20 rounded-xl p-2 text-[10px] text-rose-gold-100"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-bold uppercase text-rose-gold-100/40 tracking-wider px-1">Lon (°E)</label>
-                        <input 
-                          type="number" 
-                          step="any"
-                          value={signupLon}
-                          onChange={(e) => setSignupLon(parseFloat(e.target.value))}
-                          className="w-full bg-rose-gold-900/20 border border-rose-gold-500/20 rounded-xl p-2 text-[10px] text-rose-gold-100"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[8px] font-bold uppercase text-rose-gold-100/40 tracking-wider px-1">Elev (m)</label>
-                        <input 
-                          type="number" 
-                          value={signupElevation}
-                          onChange={(e) => setSignupElevation(parseInt(e.target.value))}
-                          className="w-full bg-rose-gold-900/20 border border-rose-gold-500/20 rounded-xl p-2 text-[10px] text-rose-gold-100"
-                        />
-                      </div>
+                    <div className="text-[10px] text-rose-gold-100/60 italic">
+                      {language === 'hi'
+                        ? 'गाँव और छोटे स्थान खोजने के लिए जन्म स्थान दर्ज करें, फिर सूची से सही मिलान चुनें।'
+                        : 'Enter your birth place and choose the best match from the list; village-level places are supported.'}
                     </div>
+                    <input type="hidden" value={signupLat} />
+                    <input type="hidden" value={signupLon} />
+                    <input type="hidden" value={signupElevation} />
 
                     <button 
                       type="submit"
@@ -945,7 +1124,7 @@ export default function App() {
           <h3 className="text-sm font-bold uppercase text-rose-gold-100/40 tracking-widest px-1">
             {language === 'hi' ? 'मेरी प्रोफ़ाइल' : 'My Birth Profile'}
           </h3>
-          {userProfile ? (
+          {activeUser ? (
             <div 
               onClick={() => setView('profile')}
               className="spiritual-card p-4 flex items-center justify-between gap-4 bg-rose-gold-950/20 border-rose-gold-500/20 hover:border-saffron/40 transition-all cursor-pointer relative overflow-hidden h-28"
@@ -956,12 +1135,12 @@ export default function App() {
                   <User size={20} />
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-rose-gold-100">{userProfile.name}</h4>
+                  <h4 className="text-sm font-bold text-rose-gold-100">{activeUser.name}</h4>
                   <p className="text-[10px] text-rose-gold-100/60 mt-0.5">
-                    {userProfile.birthDate} • {userProfile.birthTime}
+                    {activeUser.birthDate} • {activeUser.birthTime}
                   </p>
                   <p className="text-[10px] text-rose-gold-100/40 font-medium truncate max-w-[150px]">
-                    {userProfile.birthLocation.name}
+                    {activeUser.birthLocation.name}
                   </p>
                 </div>
               </div>
@@ -1085,26 +1264,6 @@ export default function App() {
           </button>
         </motion.div>
       )}
-
-      <div className="space-y-4">
-        <h3 className="text-sm font-bold uppercase text-rose-gold-100/40 tracking-widest px-1">All Features</h3>
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-          {menuItems.filter(item => !['dashboard', 'karmakanda', 'testing', 'widget'].includes(item.id)).map((item) => (
-            <motion.button
-              key={item.id}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setView(item.id as View)}
-              className="aspect-square spiritual-card flex flex-col items-center justify-center gap-2 p-3 text-rose-gold-100 hover:text-rose-gold-500 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-full bg-rose-gold-900/20 border border-rose-gold-500/10 flex items-center justify-center text-rose-gold-500 shadow-sm">
-                <item.icon size={20} />
-              </div>
-              <span className="text-[9px] font-bold uppercase text-center leading-tight text-rose-gold-100/60">{item.label}</span>
-            </motion.button>
-          ))}
-        </div>
-      </div>
     </div>
   );
 
@@ -1900,7 +2059,8 @@ export default function App() {
   );
 
     return (
-    <div className="min-h-screen bg-[#0a0502] font-sans text-rose-gold-100 pb-20">
+    <div className="min-h-screen font-sans text-rose-gold-100 pb-20 relative overflow-hidden liquid-shell">
+      <div className="glass-sheen pointer-events-none" />
       <AnimatePresence>
         {showSplash && (
           <motion.div 
@@ -1955,14 +2115,14 @@ export default function App() {
             )}
             title={language === 'hi' ? 'प्रोफ़ाइल' : 'Profile'}
           >
-            {userProfile ? (
-              <div className="relative">
-                <User size={18} className="text-[#ea580c]" />
-                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-[#100A06]" />
-              </div>
-            ) : (
-              <User size={18} />
-            )}
+            {activeUser ? (
+                <div className="relative">
+                  <User size={18} className="text-[#ea580c]" />
+                  <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-emerald-500 rounded-full border border-[#100A06]" />
+                </div>
+              ) : (
+                <User size={18} />
+              )}
           </button>
           <button 
             onClick={handleShare}
@@ -2113,29 +2273,30 @@ export default function App() {
                   <X size={24} className="text-rose-gold-100/70" />
                 </button>
               </div>
-              <nav className="space-y-2 flex-grow">
+              <nav ref={sidebarMenuRef} className="space-y-2 flex-grow overflow-y-auto sidebar-menu-scroll relative">
                 {menuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      if (item.id === 'share') {
-                        handleShare();
-                      } else {
-                        setView(item.id as View);
-                      }
-                      setIsMenuOpen(false);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-4 p-4 rounded-xl transition-all font-semibold",
-                      view === item.id 
-                        ? "bg-rose-gold-500 text-[#100A06] shadow-lg" 
-                        : "hover:bg-rose-gold-500/10 text-rose-gold-100/70"
-                    )}
-                  >
-                    <item.icon size={20} />
-                    <span>{item.label}</span>
-                  </button>
+                    <button
+                      key={item.id}
+                      className={cn(
+                        "w-full flex items-center gap-4 p-4 rounded-xl transition-all font-semibold sidebar-menu-item",
+                        view === item.id 
+                          ? "bg-rose-gold-500 text-[#100A06] shadow-lg" 
+                          : "hover:bg-rose-gold-500/10 text-rose-gold-100/70"
+                      )}
+                      onClick={() => {
+                        if (item.id === 'share') {
+                          handleShare();
+                        } else {
+                          setView(item.id as View);
+                        }
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      <item.icon size={20} />
+                      <span>{item.label}</span>
+                    </button>
                 ))}
+              </nav>
                 {deferredPrompt && (
                   <button
                     onClick={handleInstallClick}
@@ -2145,7 +2306,6 @@ export default function App() {
                     <span>Install App</span>
                   </button>
                 )}
-              </nav>
               <div className="mt-auto pt-6 border-t border-rose-gold-500/10 text-[10px] text-rose-gold-100/30 text-center uppercase tracking-widest">
                 {t.version}
               </div>

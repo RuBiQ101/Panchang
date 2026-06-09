@@ -1,0 +1,22 @@
+{
+  "models": [
+    {
+      "title": "Gemma 7B Local",
+      "provider": "ollama",
+      "model": "gemma:7b-instruct-q4_K_M",
+      "apiBase": "http://localhost:11434"
+    },
+    {
+      "title": "Gemma 4 Local",
+      "provider": "ollama",
+      "model": "gemma:4b-instruct-q4_K_M",
+      "apiBase": "http://localhost:11434"
+    }
+  ],
+  "tabAutocompleteModel": {
+    "title": "Gemma 4 Local",
+    "provider": "ollama",
+    "model": "gemma:4b-instruct-q4_K_M",
+    "apiBase": "http://localhost:11434"
+  }
+}
